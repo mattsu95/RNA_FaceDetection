@@ -1,47 +1,68 @@
+import os
+
 import cv2
 from ultralytics import YOLO
 
+
 class FaceDetection:
     def __init__(self):
-        # usa um modelo pré-treinado de reconhecimento facial
-        self.face_model = YOLO("models/yolov11n-face.pt")
+        project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        model_path = os.path.join(project_dir, "models", "yolov11n-face.pt")
+        self.face_model = YOLO(model_path)
+        self.camera = None
 
         self.window_name = "Face Detecion"
 
+    def open_camera(self, camera_index=0):
+        self.release_camera()
+        self.camera = cv2.VideoCapture(camera_index)
+        if not self.camera.isOpened():
+            self.release_camera()
+            raise RuntimeError("Não foi possível acessar a webcam.")
+        return self.camera
+
+    def read_camera_frame(self):
+        if self.camera is None:
+            raise RuntimeError("A webcam ainda não foi iniciada.")
+        success, bgr_frame = self.camera.read()
+        if not success:
+            return None, 0
+        return self.process_frame(bgr_frame)
+
+    def process_frame(self, bgr_frame):
+        detection_result = self.face_model(bgr_frame, verbose=False)
+        result = detection_result[0]
+        result_frame = result.plot()
+        face_count = len(result.boxes)
+        return result_frame, face_count
+
+    def release_camera(self):
+        if self.camera is not None:
+            self.camera.release()
+            self.camera = None
+
     # detecção de rosto através da webcam
     def webcam_capture(self):
-        camera_object = cv2.VideoCapture(0)
+        camera_object = self.open_camera()
 
-        while True:
-            success, bgr_frame = camera_object.read()
-            if not success:
-                break
+        try:
+            while True:
+                success, bgr_frame = camera_object.read()
+                if not success:
+                    break
 
-            # diminui o tamanho do frame
-            # bgr_frame = self.escalonar_frame(bgr_frame, 25)
+                result_frame, _ = self.process_frame(bgr_frame)
 
-            # aplica a detecção de rostos no frame 
-            detection_result = self.face_model(bgr_frame, verbose = False)
+                cv2.imshow(self.window_name, result_frame)
 
-            # "recria" a imagem do frame unida com a detecção de rostos
-            result_frame = detection_result[0].plot()
+                if cv2.waitKey(1) & 0xFF == 27:
+                    break
 
-
-            # mostra a imagem da câmera com a detecção de rostos aplicada
-            cv2.imshow(self.window_name, result_frame)
-
-            # fecha com esc
-            if cv2.waitKey(1) & 0xFF == 27:
-                break
-
-            # para a execução caso feche a janela
-            if cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE) < 1:
-                break
-
-
-        # termina a conexão com a webcam e destroi a janela
-        camera_object.release()
-        cv2.destroyAllWindows()
+                if cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE) < 1:
+                    break
+        finally:
+            self.release_camera()
+            cv2.destroyAllWindows()
 
 
     def img_capture(self, img_path):

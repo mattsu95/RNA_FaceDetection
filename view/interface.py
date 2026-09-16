@@ -1,6 +1,6 @@
 """
-FRM (Face Recognition Module) — Estimativa de idade por detecção facial
-Interface desktop em Python (CustomTkinter + OpenCV).
+FRM Estimativa de idade por detecção facial
+Interface desktop em Python (CustomTkinter).
 
 Equipe: Pedro Miotto, Eduardo Nogueira Korte, Thiago Oliveira, Matheus Seghatti
 Modelo: Rede Neural Convolucional
@@ -11,41 +11,38 @@ Como executar:
 
     A logo (image.png) precisa estar na mesma pasta deste arquivo.
 
-PONTO DE INTEGRAÇÃO DO MODELO:
-    Procure o método `Viewport.run_analysis` mais abaixo. Ele hoje gera um
-    resultado simulado (idade e confiança aleatórias) só para a interface
-    ficar completa enquanto o modelo não está pronto. Troque o bloco
-    marcado por uma chamada real ao modelo treinado (ex.: carregar o .h5 /
-    .pt salvo e rodar a inferência sobre `self.current_image`).
+Esta versão contém somente a interface. A integração do modelo será feita
+posteriormente em uma camada separada.
 """
 
 import os
-import random
-import threading
+import sys
 import tkinter as tk
 from tkinter import filedialog
 
-import customtkinter as ctk
 import cv2
+import customtkinter as ctk
 from PIL import Image, ImageTk, ImageOps
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGO_PATH = os.path.join(BASE_DIR, "image.png")
+SRC_DIR = os.path.join(os.path.dirname(BASE_DIR), "src")
+if SRC_DIR not in sys.path:
+    sys.path.insert(0, SRC_DIR)
 
-# ---------------------------------------------------------------------------
-# Paleta (derivada da referência de ícone FRM) e tipografia
-# ---------------------------------------------------------------------------
-BG = "#0a1524"
-PANEL = "#0f1f36"
-PANEL_2 = "#142c48"
-LINE = "#1e3a5a"
-LINE_SOFT = "#16293f"
-CYAN = "#8ff0e6"
-BLUE = "#529ad4"
-BLUE_DIM = "#2c5578"
-CREAM = "#f2ece0"
-MUTED = "#7691aa"
-MUTED_DIM = "#4d6478"
+from FaceDetection import FaceDetection
+
+BG = "#ffffff"
+PANEL = "#f5f9fc"
+PANEL_2 = "#e4eef7"
+LINE = "#a9c3d8"
+LINE_SOFT = "#c9d9e6"
+CYAN = "#007f80"
+BLUE = "#246aa3"
+BLUE_DIM = "#4f7ea7"
+CREAM = "#102a43"
+MUTED = "#3f596f"
+MUTED_DIM = "#536b7f"
 
 # botões sólidos, no estilo da referência (Face Recognition System)
 BTN_BLUE = "#2f5fa8"
@@ -55,7 +52,7 @@ FONT_DISPLAY = "Segoe UI"     # título / número de idade
 FONT_BODY = "Segoe UI"        # sans — texto de interface
 FONT_MONO = "Consolas"        # mono — leituras técnicas
 
-ctk.set_appearance_mode("dark")
+ctk.set_appearance_mode("light")
 
 
 def font(family, size, weight="normal", slant="roman"):
@@ -72,11 +69,6 @@ class IntroFrame(ctk.CTkFrame):
         wrapper = ctk.CTkFrame(self, fg_color="transparent")
         wrapper.place(relx=0.5, rely=0.5, anchor="center")
 
-        if os.path.exists(LOGO_PATH):
-            logo_img = Image.open(LOGO_PATH).convert("RGBA")
-            self._logo = ctk.CTkImage(light_image=logo_img, dark_image=logo_img, size=(96, 96))
-            ctk.CTkLabel(wrapper, image=self._logo, text="").pack(pady=(0, 18))
-
         ctk.CTkLabel(
             wrapper, text="FRM", text_color=CREAM,
             font=font(FONT_DISPLAY, 56, weight="bold"),
@@ -89,17 +81,10 @@ class IntroFrame(ctk.CTkFrame):
 
         ctk.CTkLabel(
             wrapper, text="Estimativa de idade com detecção facial",
-            text_color=MUTED, font=font(FONT_DISPLAY, 19),
+            text_color=CREAM, font=font(FONT_DISPLAY, 19),
             wraplength=420, justify="center",
         ).pack(pady=(0, 30))
 
-       
-        ctk.CTkLabel(
-            wrapper,
-            text="Pedro Miotto, Eduardo Nogueira Korte, Thiago Oliveira, Matheus Seghatti",
-            text_color=MUTED_DIM, font=font(FONT_MONO, 13),
-            wraplength=380, justify="center",
-        ).pack(pady=(4, 40))
 
         start_btn = ctk.CTkButton(
             wrapper, text="Iniciar", width=220, height=44, corner_radius=6,
@@ -110,19 +95,13 @@ class IntroFrame(ctk.CTkFrame):
         )
         start_btn.pack()
 
-
-# ---------------------------------------------------------------------------
-# Viewport — área de captura (imagem / webcam) com molduras de canto
-# ---------------------------------------------------------------------------
 class Viewport(ctk.CTkFrame):
     CANVAS_W, CANVAS_H = 420, 500
     CORNER = 26
 
-    def __init__(self, master, on_result):
+    def __init__(self, master):
         super().__init__(master, fg_color=PANEL, corner_radius=4,
                           border_width=1, border_color=LINE_SOFT)
-        self.on_result = on_result
-
         self.canvas = tk.Canvas(
             self, width=self.CANVAS_W, height=self.CANVAS_H,
             bg=PANEL, highlightthickness=0,
@@ -131,20 +110,6 @@ class Viewport(ctk.CTkFrame):
 
         self.current_image = None       # PIL.Image atualmente carregada
         self._tk_image = None           # referência viva do PhotoImage
-        self._scan_job = None
-        self._scan_y = 0
-        self._cap = None                # cv2.VideoCapture
-        self._webcam_job = None
-        self._last_frame = None         # último frame cru da webcam (PIL)
-
-        self.capture_btn = ctk.CTkButton(
-            self, text="Capturar", width=110, height=34, corner_radius=6,
-            fg_color=BTN_BLUE, hover_color=BTN_BLUE_HOVER, border_width=0,
-            text_color="white",
-            font=font(FONT_BODY, 12, weight="bold"),
-            command=self.capture_from_webcam,
-        )
-        # posicionado sob o canvas quando a webcam está ativa
         self._draw_empty_state()
 
     # -- desenho base -----------------------------------------------------
@@ -163,27 +128,28 @@ class Viewport(ctk.CTkFrame):
 
     def _draw_empty_state(self):
         self._clear()
-        self.capture_btn.place_forget()
         self.canvas.create_rectangle(0, 0, self.CANVAS_W, self.CANVAS_H, fill=PANEL, outline="")
         self.canvas.create_text(
             self.CANVAS_W / 2, self.CANVAS_H / 2 - 10,
             text="Nenhuma imagem carregada", fill=MUTED_DIM,
-            font=(FONT_MONO, 12),
+            font=(FONT_BODY, 13),
         )
         self.canvas.create_text(
             self.CANVAS_W / 2, self.CANVAS_H / 2 + 16,
-            text="Envie uma foto ou use a webcam", fill=MUTED_DIM,
-            font=(FONT_MONO, 12),
+            text="Envie uma foto para visualizar a prévia", fill=MUTED_DIM,
+            font=(FONT_BODY, 13),
         )
         self._draw_corners()
 
     # -- exibição de imagem estática ---------------------------------------
     def show_image(self, pil_img):
-        self.stop_webcam()
         self.current_image = pil_img
         self._render_cover(pil_img)
         self._draw_corners()
-        self.run_analysis()
+
+    def show_bgr_frame(self, bgr_frame):
+        rgb_frame = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB)
+        self.show_image(Image.fromarray(rgb_frame))
 
     def _render_cover(self, pil_img, clear=True):
         """Redimensiona a imagem para preencher o canvas (comportamento tipo 'cover')."""
@@ -194,88 +160,10 @@ class Viewport(ctk.CTkFrame):
         self._tk_image = ImageTk.PhotoImage(fitted)
         self.canvas.create_image(0, 0, anchor="nw", image=self._tk_image)
 
-    # -- webcam --------------------------------------------------------------
-    def start_webcam(self):
-        self.current_image = None
-        self._cap = cv2.VideoCapture(0)
-        if not self._cap.isOpened():
-            self._cap = None
-            self._draw_empty_state()
-            raise RuntimeError("webcam indisponível")
-        self.capture_btn.place(relx=0.5, rely=0.94, anchor="s")
-        self._poll_webcam()
-
-    def _poll_webcam(self):
-        if self._cap is None:
-            return
-        ok, frame = self._cap.read()
-        if ok:
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            pil_frame = Image.fromarray(frame_rgb)
-            self._last_frame = pil_frame
-            self._render_cover(pil_frame)
-            self._draw_corners()
-        self._webcam_job = self.after(30, self._poll_webcam)
-
-    def stop_webcam(self):
-        if self._webcam_job:
-            self.after_cancel(self._webcam_job)
-            self._webcam_job = None
-        if self._cap is not None:
-            self._cap.release()
-            self._cap = None
-        self.capture_btn.place_forget()
-
-    def capture_from_webcam(self):
-        if self._last_frame is None:
-            return
-        snapshot = self._last_frame.copy()
-        self.stop_webcam()
-        self.current_image = snapshot
-        self._render_cover(snapshot)
-        self._draw_corners()
-        self.run_analysis()
-
     # -- reset -----------------------------------------------------------
     def reset(self):
-        self.stop_webcam()
         self.current_image = None
         self._draw_empty_state()
-
-    # -- análise (varredura visual + resultado simulado) -------------------
-    def run_analysis(self):
-        self.on_result(None)  # sinaliza "processando" para o painel de resultado
-        self._scan_y = 14
-        self._animate_scan(frames_left=26)
-
-    def _animate_scan(self, frames_left):
-        # redesenha imagem + corners + linha de varredura
-        if self.current_image is not None:
-            self._render_cover(self.current_image)
-        self._draw_corners()
-        self.canvas.create_line(
-            0, self._scan_y, self.CANVAS_W, self._scan_y, fill=CYAN, width=2,
-        )
-        self.canvas.create_text(
-            16, self.CANVAS_H - 18, anchor="w",
-            text="ANALISANDO IMAGEM…", fill=CYAN, font=(FONT_MONO, 10),
-        )
-        self._scan_y = 14 if self._scan_y >= self.CANVAS_H - 14 else self._scan_y + (self.CANVAS_H - 28) / 26
-
-        if frames_left > 0:
-            self._scan_job = self.after(45, lambda: self._animate_scan(frames_left - 1))
-        else:
-            if self.current_image is not None:
-                self._render_cover(self.current_image)
-            self._draw_corners()
-            # ---------------------------------------------------------------
-            # PONTO DE INTEGRAÇÃO DO MODELO
-            # Troque as duas linhas abaixo pela inferência real usando
-            # self.current_image (objeto PIL.Image já carregado/capturado).
-            simulated_age = random.randint(18, 58)
-            simulated_confidence = random.randint(70, 95)
-            # ---------------------------------------------------------------
-            self.on_result((simulated_age, simulated_confidence))
 
 
 # ---------------------------------------------------------------------------
@@ -287,13 +175,13 @@ class ResultPanel(ctk.CTkFrame):
                           border_width=1, border_color=LINE_SOFT)
 
         ctk.CTkLabel(
-            self, text="RESULTADO", text_color=MUTED,
-            font=font(FONT_MONO, 11), anchor="w",
+            self, text="RESULTADO", text_color=BLUE,
+            font=font(FONT_MONO, 11, weight="bold"), anchor="w",
         ).pack(fill="x", padx=20, pady=(18, 14))
 
         self.empty_label = ctk.CTkLabel(
             self, text="Aguardando imagem para estimar a idade.",
-            text_color=MUTED_DIM, font=font(FONT_MONO, 11),
+            text_color=MUTED, font=font(FONT_BODY, 12),
             anchor="w", justify="left",
         )
         self.empty_label.pack(fill="x", padx=20)
@@ -308,13 +196,13 @@ class ResultPanel(ctk.CTkFrame):
         )
         self.age_number.pack(side="left")
         ctk.CTkLabel(
-            age_row, text=" anos (estimado)", text_color=MUTED,
-            font=font(FONT_BODY, 13),
+            age_row, text=" rostos detectados", text_color=MUTED,
+            font=font(FONT_BODY, 14),
         ).pack(side="left", padx=(6, 0), pady=(14, 0))
 
         self.age_range = ctk.CTkLabel(
             self.body, text="", text_color=MUTED,
-            font=font(FONT_MONO, 11), anchor="w",
+            font=font(FONT_BODY, 12), anchor="w",
         )
         self.age_range.pack(fill="x", pady=(2, 18))
 
@@ -322,10 +210,10 @@ class ResultPanel(ctk.CTkFrame):
         conf_row.pack(fill="x")
         ctk.CTkLabel(
             conf_row, text="CONFIANÇA", text_color=MUTED,
-            font=font(FONT_MONO, 10),
+            font=font(FONT_MONO, 10, weight="bold"),
         ).pack(side="left")
         self.confidence_value = ctk.CTkLabel(
-            conf_row, text="0%", text_color=MUTED, font=font(FONT_MONO, 10),
+            conf_row, text="0%", text_color=CREAM, font=font(FONT_BODY, 12, weight="bold"),
         )
         self.confidence_value.pack(side="right")
 
@@ -337,37 +225,36 @@ class ResultPanel(ctk.CTkFrame):
         self.progress.pack(fill="x", pady=(6, 20))
 
         ctk.CTkLabel(
-            self.body, text="●  Saída simulada — modelo ainda não integrado",
-            text_color=MUTED_DIM, font=font(FONT_MONO, 10),
+            self.body, text="●  Prévia da interface",
+            text_color=MUTED, font=font(FONT_BODY, 11),
             fg_color=BG, corner_radius=14,
         ).pack(anchor="w", ipadx=10, ipady=5)
 
         self.reset_btn = ctk.CTkButton(
             self, text="Nova análise", fg_color="transparent",
-            hover_color=PANEL_2, text_color=MUTED, font=font(FONT_MONO, 11),
+            hover_color=PANEL_2, text_color=BLUE, font=font(FONT_BODY, 12, weight="bold"),
             anchor="w", width=1, height=20,
         )
 
-    def show_processing(self):
-        self.body.pack_forget()
-        self.reset_btn.pack_forget()
-        self.empty_label.configure(text="Analisando imagem…")
-        self.empty_label.pack(fill="x", padx=20)
-
-    def show_result(self, age, confidence):
+    def show_face_count(self, face_count):
         self.empty_label.pack_forget()
-        self.body.pack(fill="x", padx=20, pady=(0, 4))
-        self.age_number.configure(text=str(age))
-        self.age_range.configure(text=f"Faixa provável: {age-3}–{age+3} anos")
-        self.confidence_value.configure(text=f"{confidence}%")
-        self.progress.set(confidence / 100)
-        self.reset_btn.pack(anchor="w", padx=20, pady=(0, 16))
+        self.body.pack(fill="x", padx=20, pady=(0, 16))
+        self.reset_btn.pack(fill="x", padx=20, pady=(0, 14))
+        self.age_number.configure(text=str(face_count))
+        self.age_range.configure(
+            text="rosto detectado" if face_count == 1 else "rostos detectados"
+        )
+        self.confidence_value.configure(text="Detecção facial")
+        self.progress.set(1 if face_count else 0)
 
     def reset(self):
         self.body.pack_forget()
         self.reset_btn.pack_forget()
         self.empty_label.configure(text="Aguardando imagem para estimar a idade.")
         self.empty_label.pack(fill="x", padx=20)
+        self.age_number.configure(text="—")
+        self.age_range.configure(text="")
+        self.confidence_value.configure(text="0%")
         self.progress.set(0)
 
 
@@ -377,23 +264,19 @@ class ResultPanel(ctk.CTkFrame):
 class AppFrame(ctk.CTkFrame):
     def __init__(self, master, on_back):
         super().__init__(master, fg_color=BG)
+        self.detector = None
+        self.camera_running = False
+        self.camera_job = None
 
         # cabeçalho ------------------------------------------------------
         header = ctk.CTkFrame(self, fg_color="transparent")
         header.pack(fill="x", padx=28, pady=(22, 18))
 
         ctk.CTkButton(
-            header, text="‹  Início", fg_color="transparent",
+            header, text="‹  Voltar", fg_color="transparent",
             hover_color=PANEL, text_color=MUTED, font=font(FONT_BODY, 13),
-            width=70, command=on_back,
+            width=70, command=self.go_back,
         ).pack(side="left")
-
-        if os.path.exists(LOGO_PATH):
-            header_logo_img = Image.open(LOGO_PATH).convert("RGBA")
-            self._header_logo = ctk.CTkImage(
-                light_image=header_logo_img, dark_image=header_logo_img, size=(28, 28)
-            )
-            ctk.CTkLabel(header, image=self._header_logo, text="").pack(side="left", padx=(14, 6))
 
         ctk.CTkLabel(
             header, text="FRM", text_color=CREAM,
@@ -402,7 +285,7 @@ class AppFrame(ctk.CTkFrame):
 
         ctk.CTkLabel(
             header, text="●  Modelo em treinamento", text_color=BLUE,
-            font=font(FONT_MONO, 11), fg_color=PANEL, corner_radius=14,
+            font=font(FONT_BODY, 11, weight="bold"), fg_color=PANEL, corner_radius=14,
         ).pack(side="right", ipadx=10, ipady=5)
 
         ctk.CTkFrame(self, fg_color=LINE_SOFT, height=1).pack(fill="x", padx=28)
@@ -414,15 +297,8 @@ class AppFrame(ctk.CTkFrame):
         left = ctk.CTkFrame(body, fg_color="transparent")
         left.pack(side="left", padx=(0, 24))
 
-        self.result_panel = ResultPanel(None)  # criado abaixo, referência temporária
-        self.viewport = Viewport(left, on_result=self._handle_result)
+        self.viewport = Viewport(left)
         self.viewport.pack()
-        self.webcam_error = ctk.CTkLabel(
-            left, text="", text_color=MUTED, font=font(FONT_MONO, 11),
-            wraplength=Viewport.CANVAS_W, justify="left",
-        )
-        self.webcam_error.pack(fill="x", pady=(10, 0))
-
         right = ctk.CTkFrame(body, fg_color="transparent", width=300)
         right.pack(side="left", fill="both", expand=True)
 
@@ -434,16 +310,27 @@ class AppFrame(ctk.CTkFrame):
             font=font(FONT_BODY, 13, weight="bold"), height=44, corner_radius=6,
             command=self.upload_photo,
         ).pack(side="left", fill="x", expand=True, padx=(0, 6))
-        ctk.CTkButton(
-            actions, text="Usar webcam", fg_color=BTN_BLUE, hover_color=BTN_BLUE_HOVER,
-            border_width=0, text_color="white",
+        self.webcam_btn = ctk.CTkButton(
+            actions, text="Ligar webcam", fg_color=PANEL_2, hover_color=LINE_SOFT,
+            border_width=1, border_color=LINE, text_color=BLUE,
             font=font(FONT_BODY, 13, weight="bold"), height=44, corner_radius=6,
-            command=self.use_webcam,
-        ).pack(side="left", fill="x", expand=True, padx=(6, 0))
-
+            command=self.toggle_webcam,
+        )
+        self.webcam_btn.pack(side="left", fill="x", expand=True, padx=(6, 0))
+        self.webcam_status = ctk.CTkLabel(
+            right, text="", text_color=MUTED, font=font(FONT_BODY, 11),
+            wraplength=300, justify="left", anchor="w",
+        )
+        self.webcam_status.pack(fill="x", pady=(0, 14))
         self.result_panel = ResultPanel(right)
         self.result_panel.pack(fill="x")
         self.result_panel.reset_btn.configure(command=self.reset_all)
+
+        self.on_back = on_back
+
+    def go_back(self):
+        self.stop_webcam()
+        self.on_back()
 
     # -- ações -------------------------------------------------------------
     def upload_photo(self):
@@ -453,43 +340,76 @@ class AppFrame(ctk.CTkFrame):
         )
         if not path:
             return
-        self.webcam_error.configure(text="")
-        img = Image.open(path).convert("RGB")
-        self.viewport.show_image(img)
-
-    def use_webcam(self):
-        self.webcam_error.configure(text="")
         try:
-            self.viewport.start_webcam()
-        except RuntimeError:
-            self.webcam_error.configure(
-                text="Não foi possível acessar a webcam. Verifique se ela está "
-                     "conectada e se outra aplicação não está usando o dispositivo."
-            )
+            if self.camera_running:
+                self.stop_webcam()
+            detector = self.get_detector()
+            bgr_image = cv2.imread(path)
+            if bgr_image is None:
+                raise ValueError("Não foi possível carregar a imagem selecionada.")
+            result_frame, face_count = detector.process_frame(bgr_image)
+            self.viewport.show_bgr_frame(result_frame)
+            self.result_panel.show_face_count(face_count)
+            self.webcam_status.configure(text="Imagem processada pelo detector facial.")
+        except Exception as error:
+            self.webcam_status.configure(text=f"Erro ao processar a imagem: {error}")
+
+    def get_detector(self):
+        if self.detector is None:
+            self.webcam_status.configure(text="Carregando modelo de detecção facial...")
+            self.update_idletasks()
+            self.detector = FaceDetection()
+        return self.detector
+
+    def toggle_webcam(self):
+        if self.camera_running:
+            self.stop_webcam()
+            return
+        try:
+            detector = self.get_detector()
+            detector.open_camera()
+            self.camera_running = True
+            self.webcam_btn.configure(text="Desligar webcam")
+            self.webcam_status.configure(text="Webcam ativa. Exibindo detecção em tempo real.")
+            self.update_webcam_frame()
+        except Exception as error:
+            self.webcam_status.configure(text=f"Não foi possível iniciar a webcam: {error}")
+
+    def update_webcam_frame(self):
+        if not self.camera_running:
+            return
+        try:
+            frame, face_count = self.detector.read_camera_frame()
+            if frame is None:
+                self.stop_webcam()
+                self.webcam_status.configure(text="A webcam não retornou nenhum frame.")
+                return
+            self.viewport.show_bgr_frame(frame)
+            self.result_panel.show_face_count(face_count)
+            self.camera_job = self.after(15, self.update_webcam_frame)
+        except Exception as error:
+            self.stop_webcam()
+            self.webcam_status.configure(text=f"Erro na webcam: {error}")
+
+    def stop_webcam(self):
+        self.camera_running = False
+        if self.camera_job is not None:
+            self.after_cancel(self.camera_job)
+            self.camera_job = None
+        if self.detector is not None:
+            self.detector.release_camera()
+        self.webcam_btn.configure(text="Ligar webcam")
 
     def reset_all(self):
+        self.stop_webcam()
         self.viewport.reset()
         self.result_panel.reset()
-        self.webcam_error.configure(text="")
+        self.webcam_status.configure(text="")
 
-    def _handle_result(self, result):
-        if result is None:
-            self.result_panel.show_processing()
-        else:
-            age, confidence = result
-            self.result_panel.show_result(age, confidence)
-
-    def on_leave(self):
-        self.viewport.stop_webcam()
-
-
-# ---------------------------------------------------------------------------
-# Janela principal
-# ---------------------------------------------------------------------------
 class FRMApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("FRM (Face Recognition Module) — Estimativa de idade")
+        self.title("FRM — Estimativa de idade")
         self.geometry("980x680")
         self.minsize(860, 620)
         self.configure(fg_color=BG)
@@ -510,7 +430,6 @@ class FRMApp(ctk.CTk):
         self.app_frame.lift()
 
     def show_intro(self):
-        self.app_frame.on_leave()
         self.app_frame.lower()
         self.intro_frame.lift()
 
