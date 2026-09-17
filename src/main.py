@@ -1,5 +1,7 @@
 #from FaceDetection import FaceDetection
 from AgeDetection import AgeDetection
+from FaceDetection import FaceDetection
+
 if __name__ == "__main__":
     #fd = FaceDetection()
     #fd.webcam_capture()
@@ -7,4 +9,8 @@ if __name__ == "__main__":
     #fd.img_plot(img)
 
     ad = AgeDetection()
-    ad.detect_by_img("teste.png")
+
+    fd = FaceDetection(age_model=ad)
+    fd.webcam_capture(camera_index=1)
+
+    #ad.detect_by_img("teste.png")
