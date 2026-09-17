@@ -11,6 +11,6 @@ if __name__ == "__main__":
     ad = AgeDetection()
 
     fd = FaceDetection(age_model=ad)
-    fd.webcam_capture(camera_index=1)
+    fd.webcam_capture(camera_index=0)
 
     #ad.detect_by_img("teste.png")

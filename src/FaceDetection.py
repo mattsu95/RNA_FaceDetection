@@ -8,7 +8,9 @@ class FaceDetection:
     def __init__(self, age_model: AgeDetection = None):
         project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         model_path = os.path.join(project_dir, "models", "yolov11n-face.pt")
+        #model_path = os.path.join(project_dir, "models", "yolov11n-face.onnx")
         self.face_model = YOLO(model_path)
+        #self.face_model = YOLO(model_path, task="detect")
         self.camera = None
         self.ad: AgeDetection = age_model
 
@@ -21,7 +23,7 @@ class FaceDetection:
 
     def open_camera(self, camera_index=0):
         self.release_camera()
-        self.camera = cv2.VideoCapture(camera_index)
+        self.camera = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
         if not self.camera.isOpened():
             self.release_camera()
             raise RuntimeError("Não foi possível acessar a webcam.")
@@ -44,7 +46,7 @@ class FaceDetection:
         if self.ad and len(result.boxes) > 0:
             if result.boxes.id is not None:
                 alt_img, larg_img = bgr_frame.shape[:2]
-                margem = 0.30
+                margem = 0.0
 
                 boxes = result.boxes.xyxy.cpu().numpy().astype(int)
                 track_ids = result.boxes.id.cpu().numpy().astype(int)
@@ -53,7 +55,7 @@ class FaceDetection:
                     #pega as coord.
                     x1, y1, x2, y2 = box
 
-                    if track_id not in self.age_cache or self.frame_count % 60 == 0:
+                    if track_id not in self.age_cache or self.frame_count % 30 == 0:
                         #calcula margme
                         offset_x = int((x2 - x1) * margem)
                         offset_y = int((y2 - y1) * margem)

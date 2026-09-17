@@ -28,8 +28,7 @@ class AgeDetection:
         # preprocessamento obrigatório
         face_gray = cv2.cvtColor(img_path, cv2.COLOR_BGR2GRAY)
         face_resized = cv2.resize(face_gray, (200, 200))
-        face_normalized = face_resized / 255.0
-        face_input = np.expand_dims(face_normalized, axis=[0, -1])
+        face_input = np.expand_dims(face_resized, axis=[0, -1])
 
         # Faz a predição
         age_predictions = self.age_model.predict(face_input, verbose=0)
