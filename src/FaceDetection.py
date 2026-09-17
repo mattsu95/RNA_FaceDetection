@@ -36,7 +36,7 @@ class FaceDetection:
         return self.process_frame(bgr_frame)
 
     def process_frame(self, bgr_frame):
-        detection_result = self.face_model.track(bgr_frame, persist=True, verbose=False)
+        detection_result = self.face_model.track(bgr_frame, persist=True, verbose=False, imgsz=320)
         result = detection_result[0]
 
         result_frame = result.plot()
