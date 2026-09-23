@@ -30,7 +30,7 @@ SRC_DIR = os.path.join(os.path.dirname(BASE_DIR), "src")
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
-from FaceDetection import FaceDetection
+# from FaceDetection import FaceDetection
 
 BG = "#ffffff"
 PANEL = "#f5f9fc"
@@ -57,6 +57,86 @@ ctk.set_appearance_mode("light")
 
 def font(family, size, weight="normal", slant="roman"):
     return ctk.CTkFont(family=family, size=size, weight=weight, slant=slant)
+
+
+# ---------------------------------------------------------------------------
+# Tela 0 — BoloBet
+# ---------------------------------------------------------------------------
+class BetFrame(ctk.CTkFrame):
+    def __init__(self, master, on_start):
+        super().__init__(master, fg_color=BG)
+
+        wrapper1 = ctk.CTkFrame(self, fg_color="transparent")
+        wrapper1.place(relx=0.25, rely=0.15, anchor="e")
+
+        ctk.CTkLabel(
+            wrapper1, text="Bolo Bet", text_color=CREAM,
+            font=font(FONT_DISPLAY, 56, weight="bold"),
+        ).pack(pady=(0, 4))
+
+        ctk.CTkLabel(
+            wrapper1, text="Algum texto legal",
+            text_color=BLUE, font=font(FONT_MONO, 16),
+        ).pack(pady=(0, 14))
+
+        wrapper2 = ctk.CTkFrame(self, fg_color="transparent")
+        wrapper2.place(relx=0.7, rely=0.125, anchor="w")
+
+        ctk.CTkLabel(
+            wrapper2, text="Cadastro", text_color=CREAM,
+            font=font(FONT_DISPLAY, 48, weight="bold"),
+        ).pack(pady=(0, 4))
+
+        wrapper3 = ctk.CTkFrame(self, fg_color="transparent")
+        wrapper3.place(relx=0.8, rely=0.5, anchor="center")
+
+        ctk.CTkLabel(
+            wrapper3, text="E-mail",
+            text_color=CREAM, font=font(FONT_DISPLAY, 14),
+            wraplength=420, justify="center",
+        ).pack(pady=(0, 5))
+
+        ctk.CTkEntry(
+            wrapper3,                         
+            placeholder_text="ogrupodobolo@gmail.com",
+            width=200,                
+            height=35,                  
+            corner_radius=8,            
+            fg_color="#FFFFFF",          
+            text_color="#1E1E1E",       
+            placeholder_text_color="#888888"
+        ).pack(pady=(0, 15))
+
+        ctk.CTkLabel(
+            wrapper3, text="Senha",
+            text_color=CREAM, font=font(FONT_DISPLAY, 14),
+            wraplength=420, justify="center",
+        ).pack(pady=(0, 5))
+
+        ctk.CTkEntry(
+            wrapper3,                         
+            placeholder_text="@ogrupodobolo",
+            show="•",
+            width=200,                
+            height=35,                  
+            corner_radius=8,            
+            fg_color="#FFFFFF",          
+            text_color="#1E1E1E",       
+            placeholder_text_color="#888888"
+        ).pack(pady=(0, 15))
+
+
+        start_btn = ctk.CTkButton(
+            wrapper3, text="Criar Conta", width=220, height=44, corner_radius=6,
+            fg_color=BTN_BLUE, hover_color=BTN_BLUE_HOVER, border_width=0,
+            text_color="white",
+            font=font(FONT_BODY, 14, weight="bold"),
+            command=on_start,
+        )
+        start_btn.pack()
+
+    
+        
 
 
 # ---------------------------------------------------------------------------
@@ -317,6 +397,7 @@ class AppFrame(ctk.CTkFrame):
             command=self.toggle_webcam,
         )
         self.webcam_btn.pack(side="left", fill="x", expand=True, padx=(6, 0))
+
         self.webcam_status = ctk.CTkLabel(
             right, text="", text_color=MUTED, font=font(FONT_BODY, 11),
             wraplength=300, justify="left", anchor="w",
@@ -326,6 +407,7 @@ class AppFrame(ctk.CTkFrame):
         self.result_panel.pack(fill="x")
         self.result_panel.reset_btn.configure(command=self.reset_all)
 
+        self.webcam_btn.invoke() # pra já ativar assim q abre a tela
         self.on_back = on_back
 
     def go_back(self):
@@ -417,7 +499,7 @@ class FRMApp(ctk.CTk):
         container = ctk.CTkFrame(self, fg_color=BG)
         container.pack(fill="both", expand=True)
 
-        self.intro_frame = IntroFrame(container, on_start=self.show_app)
+        self.intro_frame = BetFrame(container, on_start=self.show_app)
         self.app_frame = AppFrame(container, on_back=self.show_intro)
 
         self.intro_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
