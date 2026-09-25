@@ -69,18 +69,6 @@ def _parse_function(filename, label, num_classes):
 
     return image_decoded, label
 
-# def get_train_datasets(filenames_tensor, labels_tensor, num_classes, batch_size):
-#     train_aug_dataset = tf.data.Dataset.from_tensor_slices((filenames_tensor, labels_tensor))
-#     train_aug_dataset = train_aug_dataset.map(lambda x, y: _parse_function(x, y, num_classes))
-#     train_aug_dataset = train_aug_dataset.batch(batch_size)    # Same as batch_size hyperparameter in model.fit() below.
-#     return train_aug_dataset
-
-# def get_test_datasets(filenames_tensor, labels_tensor, num_classes, batch_size):
-#     test_dataset = tf.data.Dataset.from_tensor_slices((filenames_tensor, labels_tensor))
-#     test_dataset = test_dataset.map(lambda x, y: _parse_function(x, y, num_classes))
-#     test_dataset = test_dataset.batch(batch_size)    # Same as batch_size hyperparameter in model.fit() below.
-#     return test_dataset
-
 def get_train_datasets(filenames_tensor, labels_tensor, num_classes, batch_size):
     train_aug_dataset = tf.data.Dataset.from_tensor_slices((filenames_tensor, labels_tensor))
     
@@ -124,36 +112,6 @@ def define_cnn(num_classes, conv_filters, dense_nodes):
     final_cnn.add(Dense(num_classes, activation='softmax'))
 
     return final_cnn
-
-# def define_cnn(num_classes):
-#     # Defining the architecture of the sequential neural network.
-#     final_cnn = Sequential()
-
-#     # Input layer with 32 filters, followed by an AveragePooling2D layer.
-#     final_cnn.add(Conv2D(filters=32, kernel_size=3, activation='relu', input_shape=(200, 200, 1)))    # 3rd dim = 1 for grayscale images.
-#     final_cnn.add(AveragePooling2D(pool_size=(2,2)))
-
-#     # Three Conv2D layers with filters increasing by a factor of 2 for every successive Conv2D layer.
-#     final_cnn.add(Conv2D(filters=64, kernel_size=3, activation='relu'))
-#     final_cnn.add(AveragePooling2D(pool_size=(2,2)))
-
-#     final_cnn.add(Conv2D(filters=128, kernel_size=3, activation='relu'))
-#     final_cnn.add(AveragePooling2D(pool_size=(2,2)))
-
-#     final_cnn.add(Conv2D(filters=256, kernel_size=3, activation='relu'))
-#     final_cnn.add(AveragePooling2D(pool_size=(2,2)))
-
-#     # A GlobalAveragePooling2D layer before going into Dense layers below.
-#     # GlobalAveragePooling2D layer gives no. of outputs equal to no. of filters in last Conv2D layer above (256).
-#     final_cnn.add(GlobalAveragePooling2D())
-
-#     # One Dense layer with 132 nodes so as to taper down the no. of nodes from no. of outputs of GlobalAveragePooling2D layer above towards no. of nodes in output layer below (7).
-#     final_cnn.add(Dense(132, activation='relu'))
-
-#     # Output layer with 7 nodes (equal to the no. of classes).
-#     final_cnn.add(Dense(num_classes, activation='softmax'))
-
-#     return final_cnn
 
 def check_final_cnn_history(final_cnn_history):
     # Checking the train and test loss and accuracy values from the neural network above.
