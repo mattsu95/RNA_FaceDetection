@@ -5,3 +5,5 @@ ultralytics>=8.3.0
 torch>=2.0.0
 numpy==1.26.4
 tensorflow
+pandas==2.3.3
+scikit-learn==1.7.2
