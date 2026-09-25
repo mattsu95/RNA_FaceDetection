@@ -65,80 +65,108 @@ def font(family, size, weight="normal", slant="roman"):
 class BetFrame(ctk.CTkFrame):
     def __init__(self, master, on_start):
         super().__init__(master, fg_color=BG)
+        self.on_start = on_start
 
-        wrapper1 = ctk.CTkFrame(self, fg_color="transparent")
-        wrapper1.place(relx=0.25, rely=0.15, anchor="e")
+        # Container centralizado
+        center_container = ctk.CTkFrame(self, fg_color="transparent")
+        center_container.place(relx=0.5, rely=0.5, anchor="center")
+
+        # Paineis para dividir o layout
+        left_pane = ctk.CTkFrame(center_container, fg_color="transparent")
+        left_pane.pack(side="left", padx=(0, 40))
+
+        # Divisor vertical opcional
+        divider = ctk.CTkFrame(center_container, fg_color=LINE_SOFT, width=1)
+        divider.pack(side="left", fill="y", pady=20)
+
+        right_pane = ctk.CTkFrame(center_container, fg_color="transparent")
+        right_pane.pack(side="left", padx=(40, 0))
+
+        # --- Esquerda (Logo e Título) ---
+        try:
+            pil_image = Image.open(LOGO_PATH)
+            self.logo_image = ctk.CTkImage(light_image=pil_image, size=(180, 180))
+            self.logo_label = ctk.CTkLabel(left_pane, text="", image=self.logo_image)
+            self.logo_label.pack(pady=(0, 20))
+        except Exception as e:
+            print("Não foi possível carregar a logo:", e)
 
         ctk.CTkLabel(
-            wrapper1, text="Bolo Bet", text_color=CREAM,
+            left_pane, text="Bolo Bet", text_color=CREAM,
             font=font(FONT_DISPLAY, 56, weight="bold"),
         ).pack(pady=(0, 4))
 
         ctk.CTkLabel(
-            wrapper1, text="Algum texto legal",
+            left_pane, text="Algum texto legal",
             text_color=BLUE, font=font(FONT_MONO, 16),
         ).pack(pady=(0, 14))
 
-        wrapper2 = ctk.CTkFrame(self, fg_color="transparent")
-        wrapper2.place(relx=0.7, rely=0.125, anchor="w")
+
+        # --- Direita (Formulário) ---
+        ctk.CTkLabel(
+            right_pane, text="Cadastro", text_color=CREAM,
+            font=font(FONT_DISPLAY, 40, weight="bold"),
+        ).pack(pady=(0, 30))
 
         ctk.CTkLabel(
-            wrapper2, text="Cadastro", text_color=CREAM,
-            font=font(FONT_DISPLAY, 48, weight="bold"),
-        ).pack(pady=(0, 4))
-
-        wrapper3 = ctk.CTkFrame(self, fg_color="transparent")
-        wrapper3.place(relx=0.8, rely=0.5, anchor="center")
-
-        ctk.CTkLabel(
-            wrapper3, text="E-mail",
+            right_pane, text="E-mail",
             text_color=CREAM, font=font(FONT_DISPLAY, 14),
-            wraplength=420, justify="center",
-        ).pack(pady=(0, 5))
+            wraplength=420, justify="left", anchor="w"
+        ).pack(pady=(0, 5), fill="x")
 
-        ctk.CTkEntry(
-            wrapper3,                         
+        self.email_entry = ctk.CTkEntry(
+            right_pane,                         
             placeholder_text="ogrupodobolo@gmail.com",
-            width=200,                
-            height=35,                  
+            width=260,                
+            height=40,                  
             corner_radius=8,            
             fg_color="#FFFFFF",          
             text_color="#1E1E1E",       
             placeholder_text_color="#888888"
-        ).pack(pady=(0, 15))
+        )
+        self.email_entry.pack(pady=(0, 5))
+
+        self.error_label = ctk.CTkLabel(
+            right_pane, text="", text_color="red", font=font(FONT_BODY, 12)
+        )
+        self.error_label.pack(pady=(0, 10))
 
         ctk.CTkLabel(
-            wrapper3, text="Senha",
+            right_pane, text="Senha",
             text_color=CREAM, font=font(FONT_DISPLAY, 14),
-            wraplength=420, justify="center",
-        ).pack(pady=(0, 5))
+            wraplength=420, justify="left", anchor="w"
+        ).pack(pady=(0, 5), fill="x")
 
-        ctk.CTkEntry(
-            wrapper3,                         
-            placeholder_text="@ogrupodobolo",
+        self.password_entry = ctk.CTkEntry(
+            right_pane,                         
+            placeholder_text="••••••••",
             show="•",
-            width=200,                
-            height=35,                  
+            width=260,                
+            height=40,                  
             corner_radius=8,            
             fg_color="#FFFFFF",          
             text_color="#1E1E1E",       
             placeholder_text_color="#888888"
-        ).pack(pady=(0, 15))
-
+        )
+        self.password_entry.pack(pady=(0, 25))
 
         start_btn = ctk.CTkButton(
-            wrapper3, text="Criar Conta", width=220, height=44, corner_radius=6,
+            right_pane, text="Criar Conta", width=260, height=44, corner_radius=6,
             fg_color=BTN_BLUE, hover_color=BTN_BLUE_HOVER, border_width=0,
             text_color="white",
             font=font(FONT_BODY, 14, weight="bold"),
-            command=on_start,
+            command=self.validate_and_start,
         )
         start_btn.pack()
 
-    
-        
-
-
+    def validate_and_start(self):
+        email = self.email_entry.get().strip()
+        senha = self.password_entry.get().strip()
+        if not email or not senha:
+            self.error_label.configure(text="Preencha o e-mail e a senha!")
+        else:
+            self.error_label.configure(text="")
+            self.on_start()
 # ---------------------------------------------------------------------------
 # Tela 1 — Introdução
 # ---------------------------------------------------------------------------

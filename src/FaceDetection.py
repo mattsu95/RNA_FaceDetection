@@ -34,7 +34,7 @@ class FaceDetection:
             raise RuntimeError("A webcam ainda não foi iniciada.")
         success, bgr_frame = self.camera.read()
         if not success:
-            return None, 0
+            return None, 0, []
         return self.process_frame(bgr_frame)
 
     def process_frame(self, bgr_frame):
@@ -42,6 +42,7 @@ class FaceDetection:
         result = detection_result[0]
 
         result_frame = result.plot()
+        detected_ages = []
 
         if self.ad and len(result.boxes) > 0:
             if result.boxes.id is not None:
@@ -74,13 +75,14 @@ class FaceDetection:
 
                     idade_predita = self.age_cache.get(track_id, "")
                     if idade_predita:
+                        detected_ages.append(idade_predita)
                         cv2.putText(result_frame, f"Idade: {idade_predita}", (x1, max(20, y1 - 30)), 
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2, cv2.LINE_AA)
 
         self.frame_count += 1
         face_count = len(result.boxes)
 
-        return result_frame, face_count
+        return result_frame, face_count, detected_ages
 
     def release_camera(self):
         if self.camera is not None:
@@ -103,7 +105,7 @@ class FaceDetection:
                 fps = 1 / (current_time - prev_time)
                 prev_time = current_time                    
 
-                result_frame, _ = self.process_frame(bgr_frame)
+                result_frame, _, _ = self.process_frame(bgr_frame)
 
                 #plot a fps
                 cv2.putText(result_frame, f"FPS: {int(fps)}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3, cv2.LINE_AA)
