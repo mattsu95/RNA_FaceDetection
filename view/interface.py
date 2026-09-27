@@ -9,7 +9,7 @@ Como executar:
     pip install -r requirements.txt
     python interface-frm.py
 
-    A logo (image.png) precisa estar na mesma pasta deste arquivo.
+    A logo (image.jpg) precisa estar na mesma pasta deste arquivo.
 
 Esta versão contém somente a interface. A integração do modelo será feita
 posteriormente em uma camada separada.
@@ -25,7 +25,7 @@ import customtkinter as ctk
 from PIL import Image, ImageTk, ImageOps
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LOGO_PATH = os.path.join(BASE_DIR, "image.png")
+LOGO_PATH = os.path.join(BASE_DIR, "image.jpg")
 SRC_DIR = os.path.join(os.path.dirname(BASE_DIR), "src")
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
@@ -435,8 +435,37 @@ class AppFrame(ctk.CTkFrame):
         self.result_panel.pack(fill="x")
         self.result_panel.reset_btn.configure(command=self.reset_all)
 
+        self.action_btn = ctk.CTkButton(
+            right, text="Avançar", fg_color=BTN_BLUE, hover_color=BTN_BLUE_HOVER,
+            border_width=0, text_color="white",
+            font=font(FONT_BODY, 14, weight="bold"), height=44, corner_radius=6,
+            command=self.check_age_and_proceed
+        )
+        self.action_btn.pack(side="bottom", fill="x", pady=(20, 0))
+
+        self.latest_ages = []
         self.webcam_btn.invoke() # pra já ativar assim q abre a tela
         self.on_back = on_back
+
+    def check_age_and_proceed(self):
+        # Encontra a maior idade detectada (se houver)
+        max_age = 0
+        for age in self.latest_ages:
+            try:
+                # Caso venha como string ex: '25'
+                # ou um intervalo, precisaria extrair
+                age_val = int(age)
+                if age_val > max_age:
+                    max_age = age_val
+            except ValueError:
+                pass
+
+        if max_age > 18:
+            # Se for maior que 18, apenas avisar sucesso ou continuar
+            self.webcam_status.configure(text="Acesso liberado! Maior de 18 anos.", text_color=CYAN)
+        else:
+            # Caso contrário, voltar para a tela inicial
+            self.go_back()
 
     def go_back(self):
         self.stop_webcam()
@@ -457,10 +486,17 @@ class AppFrame(ctk.CTkFrame):
             bgr_image = cv2.imread(path)
             if bgr_image is None:
                 raise ValueError("Não foi possível carregar a imagem selecionada.")
-            result_frame, face_count = detector.process_frame(bgr_image)
+            result = detector.process_frame(bgr_image)
+            if len(result) == 3:
+                result_frame, face_count, detected_ages = result
+            else:
+                result_frame, face_count = result
+                detected_ages = []
+
+            self.latest_ages = detected_ages
             self.viewport.show_bgr_frame(result_frame)
             self.result_panel.show_face_count(face_count)
-            self.webcam_status.configure(text="Imagem processada pelo detector facial.")
+            self.webcam_status.configure(text="Imagem processada pelo detector facial.", text_color=MUTED)
         except Exception as error:
             self.webcam_status.configure(text=f"Erro ao processar a imagem: {error}")
 
@@ -489,11 +525,19 @@ class AppFrame(ctk.CTkFrame):
         if not self.camera_running:
             return
         try:
-            frame, face_count = self.detector.read_camera_frame()
+            result = self.detector.read_camera_frame()
+            if len(result) == 3:
+                frame, face_count, detected_ages = result
+            else:
+                frame, face_count = result
+                detected_ages = []
+
             if frame is None:
                 self.stop_webcam()
-                self.webcam_status.configure(text="A webcam não retornou nenhum frame.")
+                self.webcam_status.configure(text="A webcam não retornou nenhum frame.", text_color=MUTED)
                 return
+            
+            self.latest_ages = detected_ages
             self.viewport.show_bgr_frame(frame)
             self.result_panel.show_face_count(face_count)
             self.camera_job = self.after(15, self.update_webcam_frame)
@@ -514,7 +558,8 @@ class AppFrame(ctk.CTkFrame):
         self.stop_webcam()
         self.viewport.reset()
         self.result_panel.reset()
-        self.webcam_status.configure(text="")
+        self.latest_ages = []
+        self.webcam_status.configure(text="", text_color=MUTED)
 
 class FRMApp(ctk.CTk):
     def __init__(self):
