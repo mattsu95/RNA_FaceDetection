@@ -413,12 +413,12 @@ class AppFrame(ctk.CTkFrame):
 
         actions = ctk.CTkFrame(right, fg_color="transparent")
         actions.pack(fill="x", pady=(0, 18))
-        ctk.CTkButton(
-            actions, text="Enviar foto", fg_color=BTN_BLUE, hover_color=BTN_BLUE_HOVER,
-            border_width=0, text_color="white",
-            font=font(FONT_BODY, 13, weight="bold"), height=44, corner_radius=6,
-            command=self.upload_photo,
-        ).pack(side="left", fill="x", expand=True, padx=(0, 6))
+        # ctk.CTkButton(
+        #     actions, text="Enviar foto", fg_color=BTN_BLUE, hover_color=BTN_BLUE_HOVER,
+        #     border_width=0, text_color="white",
+        #     font=font(FONT_BODY, 13, weight="bold"), height=44, corner_radius=6,
+        #     command=self.upload_photo,
+        # ).pack(side="left", fill="x", expand=True, padx=(0, 6))
         self.webcam_btn = ctk.CTkButton(
             actions, text="Ligar webcam", fg_color=PANEL_2, hover_color=LINE_SOFT,
             border_width=1, border_color=LINE, text_color=BLUE,
@@ -437,7 +437,7 @@ class AppFrame(ctk.CTkFrame):
         self.result_panel.reset_btn.configure(command=self.reset_all)
 
         self.action_btn = ctk.CTkButton(
-            right, text="Avançar", fg_color=BTN_BLUE, hover_color=BTN_BLUE_HOVER,
+            right, text="Voltar", fg_color=BTN_BLUE, hover_color=BTN_BLUE_HOVER,
             border_width=0, text_color="white",
             font=font(FONT_BODY, 14, weight="bold"), height=44, corner_radius=6,
             command=self.check_age_and_proceed
