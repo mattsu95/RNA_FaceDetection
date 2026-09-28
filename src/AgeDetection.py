@@ -11,7 +11,7 @@ class AgeDetection:
 
     def __init__(self):
         print("Carregando modelo...")
-        self.age_model = tf.keras.models.load_model("models/age_model_acc_0.762.h5")
+        self.age_model = tf.keras.models.load_model("models/age_model_max_acc_acc_0.913.h5")
         print("Modelo carregado com sucesso!")
 
         device_name = tf.test.gpu_device_name()

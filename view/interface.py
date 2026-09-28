@@ -30,7 +30,8 @@ SRC_DIR = os.path.join(os.path.dirname(BASE_DIR), "src")
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
-# from FaceDetection import FaceDetection
+from FaceDetection import FaceDetection
+from AgeDetection import AgeDetection
 
 BG = "#ffffff"
 PANEL = "#f5f9fc"
@@ -504,7 +505,8 @@ class AppFrame(ctk.CTkFrame):
         if self.detector is None:
             self.webcam_status.configure(text="Carregando modelo de detecção facial...")
             self.update_idletasks()
-            self.detector = FaceDetection()
+            self.agefds = AgeDetection()
+            self.detector = FaceDetection(age_model=self.agefds)
         return self.detector
 
     def toggle_webcam(self):
